@@ -21,8 +21,22 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Release APK (unsigned allowed)
+      - name: Generate temporary debug keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore "${RUNNER_TEMP}/debug.keystore" \
+            -storepass android -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Build Release APK (signed with temp debug key)
         run: ./gradlew :app:assembleRelease --no-daemon
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/debug.keystore
+          KEYSTORE_PASSWORD: android
+          KEY_ALIAS: androiddebugkey
+          KEY_PASSWORD: android
 
       - name: List APK outputs
         if: always()
@@ -30,7 +44,7 @@ jobs:
           echo "== Searching for APK outputs =="
           find app/build/outputs/apk -type f -name "*.apk" -print || true
 
-      - name: Upload Release APK (signed or unsigned)
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
